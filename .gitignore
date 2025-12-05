@@ -188,12 +188,15 @@ testem.log
 Thumbs.db
 *.vscode*
 
+.locust_env/
 .saved_chats
 .aider*
 target
 set_projects.sh
 delete_genai_repos.sh
 cleanup_e2e_projects.sh
-.cloudbuild/terraform/backend.tf
-.cloudbuild/terraform/vars/env.tfvars
 docs/.vitepress/cache
+tests/cicd/delete_gcp_resources.sh
+tests/cicd/delete_agent_engines.py
+backup*
+.geminiignore

@@ -5,15 +5,16 @@ test-templated-agents:
 	uv run pytest tests/integration/test_templated_patterns.py
 
 test-e2e:
-	set -a && . tests/cicd/.env && set +a && uv run pytest tests/cicd/test_e2e_deployment.py
+	set -a && . tests/cicd/.env && set +a && uv run pytest tests/cicd/test_e2e_deployment.py -v
 
 generate-lock:
-	uv run src/utils/generate_locks.py
+	uv run python -m agent_starter_pack.utils.generate_locks
 
 lint:
+	uv sync --dev --extra lint
 	uv run ruff check . --config pyproject.toml --diff
 	uv run ruff format . --check  --config pyproject.toml --diff
-	uv run mypy --config-file pyproject.toml ./agents ./src/cli ./tests ./src/frontends/streamlit ./src/frontends/streamlit_adk
+	uv run mypy --config-file pyproject.toml ./agent_starter_pack/cli ./tests
 
 lint-templated-agents:
 	uv run tests/integration/test_template_linting.py
@@ -26,3 +27,5 @@ install:
 
 docs-dev:
 	cd docs && npm install && NODE_OPTIONS="--no-warnings" npm run docs:dev
+
+

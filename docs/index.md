@@ -32,7 +32,7 @@ features:
     details: Ship reliable agents with production-ready infra (Cloud Run / Agent Engine) featuring monitoring, observability, and CI/CD.
   - icon: 🛠️
     title: Customize & Extend
-    details: Adapt and enhance templates and infrastructure for your specific use case.
+    details: Adapt and enhance templates for your specific use case, or create your own.
 ---
 
 ::: tip ⭐ Like Agent Starter Pack?
@@ -50,4 +50,5 @@ Help us spread the word by giving us a star on GitHub!
 - **Setup:** [Installation Guide](/guide/installation)
 - **Going Live:** [Deployment Guide](/guide/deployment)
 - **Explore Templates:** [Agent Templates Overview](/agents/overview)
+- **Community:** [Community Showcase](/guide/community-showcase)
 - **Command Line:** [CLI Reference](/cli/)

@@ -1,6 +1,6 @@
 [project]
 name = "agent-starter-pack"
-version = "0.5.2"
+version = "0.26.2"
 description = "CLI to bootstrap production-ready Google Cloud GenAI agent projects from templates."
 authors = [
     { name = "Google LLC", email = "agent-starter-pack@google.com" },
@@ -9,18 +9,19 @@ license = {text = "Apache-2.0"}
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "click~=8.1.7",
-    "cookiecutter~=2.5.0",
-    "google-cloud-aiplatform>=1.87.0",
-    "rich~=13.7.0",
-    "pyyaml~=6.0.1",
+    "click>=8.1.7",
+    "cookiecutter>=2.6.0, <3.0.0",
+    "google-cloud-aiplatform>=1.120.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0.1",
     "backoff>=2.2.1",
+    "tomli>=1.1.0; python_version < \"3.11\"",
+    "requests>=2.31.0",
 ]
 
 [dependency-groups]
 dev = [
     "black~=23.11.0",
-    "crewai~=0.95.0",
     "flake8~=6.1.0",
     "google-cloud-logging~=3.11.4",
     "grpcio~=1.70.0",
@@ -41,8 +42,8 @@ dev = [
     "sphinx-autoapi~=3.0.0",
     "sphinx-click~=5.1.0",
     "sphinx-rtd-theme~=2.0.0",
-    "streamlit~=1.42.0",
-    "streamlit-feedback~=0.1.4",
+    "types-PyYAML",
+    "types-requests",
     "watchdog~=6.0.0",
 ]
 
@@ -53,17 +54,15 @@ jupyter = [
 ]
 
 lint = [
-    "ruff>=0.4.6",
-    "mypy~=1.15.0",
-    "codespell~=2.2.0",
-    "types-pyyaml~=6.0.12.20240917",
-    "types-requests~=2.32.0.20240914",
+    "ruff",
+    "mypy",
+    "codespell",
 ]
 
 [tool.pytest.ini_options]
-pythonpath = [".", "src/frontends/streamlit", "src", "agents/agentic_rag"]
+pythonpath = [".", "agent_starter_pack", "agent_starter_pack/agents/agentic_rag"]
 testpaths = ["tests"]
-addopts = "-s -v --ignore=tests/integration/test_template_linting.py --ignore=tests/integration/test_templated_patterns.py"
+addopts = "-s -v --ignore=tests/integration"
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s - %(levelname)s - %(message)s"
@@ -71,11 +70,12 @@ log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
-include = ["./agents/**/*.py", "src/cli/**/*.py", "tests/**/*.py", "src/frontends/streamlit/**/*.py", "src/frontends/streamlit_adk/**/*.py"]
-exclude = ["./agents/agentic_rag/**/*.py"]
+target-version = "py311"
+include = ["agent_starter_pack/cli/**/*.py", "tests/**/*.py"]
+exclude = ["./agent_starter_pack/agents/**/*.py", "./tests/cicd/scripts/**/*.py"]
 
 [tool.ruff.lint]
+preview = true
 select = [
     "E",   # pycodestyle
     "F",   # pyflakes
@@ -85,8 +85,9 @@ select = [
     "B",   # flake8-bugbear
     "UP", # pyupgrade
     "RUF", # ruff specific rules
+    "PLW1514", # unspecified-encoding (require encoding in open calls)
 ]
-ignore = ["E501", "C901", "RUF001"]
+ignore = ["E501", "C901", "RUF001", "UP036"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "frontend"]
@@ -107,7 +108,8 @@ ignore_missing_imports = true
 explicit_package_bases = true
 disable_error_code = ["misc", "no-untyped-call", "no-any-return"]
 exclude = '''(?x)(
-    ^agents/agentic_rag/.*$  # exclude all files under agentic_rag directory
+    ^agent_starter_pack/agents/.*$  # exclude all files under agents
+    ^tests/cicd/scripts/.*$  # exclude cicd scripts
 )'''
 
 [tool.codespell]
@@ -119,10 +121,15 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-agent-starter-pack = "src.cli.main:cli"
+agent-starter-pack = "agent_starter_pack.cli.main:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src", "agents"]
+packages = ["agent_starter_pack", "llm.txt"]
+exclude = [
+    "agent_starter_pack/resources/idx",
+    "agent_starter_pack/resources/idx_ag",
+    "agent_starter_pack/resources/containers",
+]
 
 [tool.uv.workspace]
 members = ["temp"]

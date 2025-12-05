@@ -1,71 +1,131 @@
 # Development Guide
 
-::: tip Note
-This starter pack embraces a **"bring your own agent"** philosophy. You focus on your unique business logic, and we provide the scaffolding for UI, infrastructure, deployment, and monitoring.
+This guide walks you through the entire lifecycle of creating, developing, deploying, and monitoring your agent project.
+
+::: tip Our Philosophy: "Bring Your Own Agent"
+This starter pack provides the scaffolding for UI, infrastructure, deployment, and monitoring. You focus on building your unique agent logic, and we handle the rest.
 :::
 
-### 1. Prototype Your Agent
-Begin by building and experimenting with your Generative AI Agent.
+::: details Create Your Project
+You can use the `pip` workflow for a traditional setup, or `uvx` to create a project in a single command without a permanent install.
 
-*   Use the introductory notebooks in `notebooks/` for guidance. This is ideal for rapid experimentation and focused agent logic development before integrating into the full application structure
-*   Evaluate its performance with [Vertex AI Evaluation](https://cloud.google.com/vertex-ai/generative-ai/docs/models/evaluation-overview).
+::: code-group
+```bash [pip]
+# 1. Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate
 
-### 2. Integrate Your Agent
-Incorporate your prototyped agent into the application.
+# 2. Install the package
+pip install agent-starter-pack
 
-*   Edit `app/agent.py` to import and configure your agent.
-*   Customize code within the `app/` directory (e.g., prompts, tools, API endpoints, business logic, functionality).
+# 3. Run the create command
+agent-starter-pack create my-awesome-agent
+```
 
-### 3. Test Locally
-Iterate on your agent using the built-in UI playground. It automatically reloads on code changes and offers features like chat history, user feedback, and diverse input types.
+```bash [⚡ uvx]
+# This single command downloads and runs the latest version
+uvx agent-starter-pack create my-awesome-agent
+```
+:::
 
-> Note: The specific UI playground (e.g., Streamlit, ADK web UI) launched by `make playground` depends on the agent template you selected.
+## 1. Local Development & Iteration
 
-### 4. Deploy to the Cloud
-Once you're satisfied with local testing, you are ready to deploy your agent to Google Cloud!
+Navigate into your new project to begin development.
 
-*All `make` commands should be run from the root of your agent project.*
+```bash
+cd my-awesome-agent
+```
 
-#### A. Cloud Development Environment Setup
-Establish a development (dev) environment in the cloud for initial remote testing.
+Inside, you'll find a complete project structure:
 
-**i. Set Google Cloud Project:**
-Configure `gcloud` to target your development project:
+*   `app/`: Backend agent code (prompts, tools, business logic). Directory name is configurable via the `--agent-directory` parameter.
+*   `.cloudbuild/`: CI/CD pipeline configurations for Google Cloud Build (if you selected Cloud Build as your CI/CD runner).
+*   `.github/`: CI/CD pipeline configurations for GitHub Actions (if you selected GitHub Actions as your CI/CD runner).
+*   `deployment/`: Terraform infrastructure-as-code files.
+*   `tests/`: Unit, integration, and load tests.
+*   `notebooks/`: Jupyter notebooks for prototyping and evaluation.
+*   `frontend/`: (If applicable) Web UI for interacting with your agent.
+*   `README.md`: **Project-specific instructions for your chosen template.**
+*   `GEMINI.md`: Use this file with AI tools (like [Gemini CLI](https://github.com/google-gemini/gemini-cli)) to ask questions about the template, ADK concepts, or project structure.
+
+Your development loop will look like this:
+
+1.  **Prototype:** Use the notebooks in `notebooks/` for rapid experimentation with your agent's core logic. This is ideal for trying new prompts or tools before integrating them.
+2.  **Integrate:** Edit `app/agent.py` and other files in the agent directory (usually `app/`, but configurable) to incorporate your new logic into the main application.
+3.  **Test:** Run the interactive UI playground to test your changes. It features hot-reloading, chat history, and user feedback.
+
+```bash
+# Install dependencies and launch the local playground
+make install && make playground
+```
+
+::: tip Package Management with uv
+Add new dependencies with `uv add <package>` and remove them with `uv remove <package>`.
+:::
+> Note: The specific UI playground launched by `make playground` depends on the agent template you selected during creation.
+
+## 2. Deploy to the Cloud
+
+Once you're satisfied with local testing, you are ready to deploy your agent to Google Cloud. The process involves two main stages: first, deploying to a hands-on development environment for quick iteration, and second, setting up a formal CI/CD pipeline for staging and production.
+
+*All `make` commands should be run from the root of your agent project (`my-awesome-agent`).*
+
+### Stage 1: Deploy to a Cloud Development Environment
+
+This initial stage is for provisioning a non-production environment in the cloud for remote testing and iteration.
+
+**i. Set Google Cloud Project**
+
+Configure `gcloud` to target your development project.
 ```bash
 # Replace YOUR_DEV_PROJECT_ID with your actual Google Cloud Project ID
 gcloud config set project YOUR_DEV_PROJECT_ID
 ```
 
-**ii. Provision Cloud Resources:**
-This command uses Terraform (scripts in `deployment/terraform/dev/`) to set up necessary cloud resources (IAM, databases, etc.):
+**ii. Provision Cloud Resources**
+
+This command uses Terraform to set up the necessary cloud resources for your dev environment.
+
+::: tip Optional Step
+This step is recommended to create a development environment that closely mirrors production (including dedicated service accounts and IAM permissions). However, for simple deployments, you can consider this step optional and proceed directly to deploying the backend if you have sufficient permissions.
+:::
+
 ```bash
 make setup-dev-env
 ```
 
-**iii. 🚀 Deploy Agent Backend:**
-Build and deploy your agent's backend to the dev environment:
+**iii. Deploy Agent Backend**
+
+Build and deploy your agent's backend to the dev environment.
 ```bash
-make backend
+make deploy
 ```
 
-#### B. Production-Ready Deployment with CI/CD
-For reliable, automated deployments to staging and production, a CI/CD pipeline is essential. Customize tests within your pipeline as needed.
+### Stage 2: Set Up the Path to Production with CI/CD
 
-**Option 1: One-Command CI/CD Setup (Recommended for GitHub)**
-The `agent-starter-pack` CLI streamlines CI/CD setup with GitHub:
+Once you've refined your agent in the development environment, the next stage is to set up a fully automated CI/CD pipeline for seamless deployment through staging and into production.
+
+#### Option 1: Automated CI/CD Setup
+
+From the root of your agent project (`my-awesome-agent`), run:
 ```bash
-uvx agent-starter-pack setup-cicd
+agent-starter-pack setup-cicd
 ```
-This automates creating a GitHub repository, connecting to Cloud Build, setting up staging/production infrastructure with Terraform, and configuring CI/CD triggers.
+This single command handles everything:
+- Creates a GitHub repository.
+- Connects it to your chosen CI/CD provider (Google Cloud Build or GitHub Actions).
+- Provisions all necessary infrastructure for your **staging and production environments** using Terraform.
+- Configures the deployment triggers.
 
-Follow the interactive prompts. For critical systems needing granular control, consider the manual setup.
-See the [`agent-starter-pack setup-cicd` CLI reference](../cli/setup_cicd) for details. *(Note: Automated setup currently supports GitHub only).*
+For a detailed walkthrough, see the [**`setup-cicd` CLI reference**](../cli/setup_cicd).
 
-**Option 2: Manual CI/CD Setup**
-For full control and compatibility with other Git providers, refer to the [manual deployment setup guide](./deployment.md).
+#### Option 2: Manual CI/CD Setup
 
-**Initial Commit & Push (After CI/CD Setup):**
-Once CI/CD is configured, commit and push your code to trigger the first pipeline run:
+For full control or for use with other Git providers, refer to the [manual deployment setup guide](./deployment.md).
+
+#### Trigger Your First Deployment
+
+After the CI/CD setup is complete, commit and push your code to trigger the pipeline. This will deploy your agent to the staging environment first.
 ```bash
 git add -A
 git config --global user.email "you@example.com" # If not already configured
@@ -74,23 +134,24 @@ git commit -m "Initial commit of agent code"
 git push --set-upstream origin main
 ```
 
-### 5. Monitor Your Deployed Agent
-Track your agent's performance and gather insights using integrated observability tools.
 
-*   **Technology**: OpenTelemetry events are sent to Google Cloud.
-*   **Cloud Trace & Logging**: Inspect request flows, analyze latencies, and review prompts/outputs. Access traces at: `https://console.cloud.google.com/traces/list?project=YOUR_PROD_PROJECT_ID`
-*   **BigQuery**: Route trace and log data to BigQuery for long-term storage and advanced analytics.
-*   **Looker Studio Dashboards**: Visualize agent performance with pre-built templates:
-    *   ADK Agents: [Looker Studio ADK Dashboard](https://lookerstudio.google.com/c/reporting/46b35167-b38b-4e44-bd37-701ef4307418/page/tEnnC)
-    *   Non-ADK Agents: [Looker Studio Non-ADK Dashboard](https://lookerstudio.google.com/c/reporting/fa742264-4b4b-4c56-81e6-a667dd0f853f/page/tEnnC)
-    *(Remember to follow the "Setup Instructions" within the dashboards to connect your project's data sources).*
+## 3. Monitor Your Deployed Agent
 
-➡️ For details, see the [Observability Guide](./observability.md).
+Track your agent's performance using integrated observability tools. OpenTelemetry GenAI instrumentation automatically captures telemetry data and exports it to Google Cloud services.
 
-### 6. Advanced Customization & Data
-Tailor the starter pack further to meet specific needs.
+*   **BigQuery**: Query telemetry data including token usage, model interactions, and performance metrics. Data is automatically available via external tables and linked datasets.
+*   **Cloud Logging**: View GenAI operation logs and user feedback in dedicated Cloud Logging buckets with 10-year retention.
+*   **Cloud Trace**: Inspect request flows and analyze latencies for GenAI operations at: `https://console.cloud.google.com/traces/list?project=YOUR_PROJECT_ID`
+*   **Visualization** (Optional): Connect your BigQuery data to BI tools for custom dashboards.
+
+➡️ For complete setup instructions, example queries, and testing in dev, see the [Observability Guide](./observability.md).
+
+## 4. Advanced Customization
+
+Tailor the starter pack further to meet your specific requirements.
 
 *   **RAG Data Ingestion**: For Retrieval Augmented Generation (RAG) agents, configure data pipelines to process your information and load embeddings into Vertex AI Search or Vector Search.
     ➡️ See the [Data Ingestion Guide](./data-ingestion.md).
-*   **Custom Terraform**: Modify Terraform configurations in `deployment/terraform/` for unique infrastructure requirements.
+*   **Custom Terraform**: Modify Terraform configurations in `deployment/terraform/` for unique infrastructure needs.
     ➡️ Refer to the [Deployment Guide](./deployment.md).
+*   **CI/CD Pipelines**: The CI/CD workflow definitions are located in the `.github/workflows` or `.cloudbuild` directories. You can customize these YAML files to add new steps, change triggers, or modify deployment logic.

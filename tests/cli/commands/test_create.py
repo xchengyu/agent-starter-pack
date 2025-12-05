@@ -14,14 +14,15 @@
 
 from collections.abc import Generator
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from src.cli.commands.create import (
+from agent_starter_pack.cli.commands.create import (
     create,
     display_agent_selection,
+    normalize_project_name,
 )
 
 
@@ -42,121 +43,80 @@ def mock_mkdir() -> Generator[MagicMock, None, None]:
 
 @pytest.fixture
 def mock_resolve() -> Generator[MagicMock, None, None]:
-    """Mock path resolution"""
+    """Mock path resolution to be simple and predictable."""
     with patch("pathlib.Path.resolve") as mock:
-        mock.return_value = Path("/mock/cwd/test-project")
+        # resolve() is called on the cwd path. It should return the mocked cwd path.
+        mock.return_value = Path("/mock/cwd")
         yield mock
 
 
 @pytest.fixture
 def mock_console() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.console") as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_verify_credentials() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.verify_credentials") as mock:
-        mock.return_value = {"account": "test@example.com", "project": "test-project"}
+    with patch("agent_starter_pack.cli.commands.create.console") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_process_template() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.process_template") as mock:
+    with patch("agent_starter_pack.cli.commands.create.process_template") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_get_template_path() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.get_template_path") as mock:
+    with patch("agent_starter_pack.cli.commands.create.get_template_path") as mock:
         mock.return_value = Path("/mock/template/path")
         yield mock
 
 
 @pytest.fixture
 def mock_prompt_deployment_target() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.prompt_deployment_target") as mock:
+    with patch(
+        "agent_starter_pack.cli.commands.create.prompt_deployment_target"
+    ) as mock:
         mock.return_value = "cloud_run"
         yield mock
 
 
 @pytest.fixture
-def mock_verify_vertex_connection() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.verify_vertex_connection") as mock:
-        mock.return_value = None  # Success
-        yield mock
-
-
-@pytest.fixture
 def mock_subprocess() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.subprocess.run") as mock:
+    with patch("agent_starter_pack.cli.commands.create.subprocess.run") as mock:
         mock.return_value = MagicMock(returncode=0)
         yield mock
 
 
 @pytest.fixture
 def mock_get_deployment_targets() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.utils.template.get_deployment_targets") as mock:
+    """Mock get_deployment_targets to return a list of targets."""
+    with patch("agent_starter_pack.cli.commands.create.get_deployment_targets") as mock:
         mock.return_value = ["cloud_run", "agent_engine"]
         yield mock
 
 
 @pytest.fixture
-def mock_frontend_path() -> Generator[MagicMock, None, None]:
-    with patch("pathlib.Path.glob") as mock:
-        mock.return_value = [Path("/mock/frontend/path")]
-        yield mock
-
-
-@pytest.fixture
-def mock_copy_with_exclusions() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.utils.template.copy_with_exclusions") as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_os_chdir() -> Generator[MagicMock, None, None]:
-    with patch("os.chdir") as mock:
-        yield mock
-
-
-@pytest.fixture
 def mock_load_template_config() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.utils.template.load_template_config") as mock:
+    """Mocks the template config loading to prevent file system access."""
+    with patch("agent_starter_pack.cli.commands.create.load_template_config") as mock:
         mock.return_value = {
-            "name": "langgraph_base_react",
+            "name": "langgraph_base",
             "description": "LangGraph Base React Agent",
-            "deployment_targets": ["cloud_run", "agent_engine"],
+            "settings": {
+                "deployment_targets": ["cloud_run", "agent_engine"],
+                "requires_data_ingestion": False,
+                "commands": {"extra": {"dev": "uv run app/main.py"}},
+            },
             "has_pipeline": True,
-            "frontend": "streamlit",
+            "frontend": "None",
         }
         yield mock
 
 
 @pytest.fixture
-def mock_template_path() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.utils.template.get_template_path") as mock:
-        mock.return_value = "/mock/template/path"
-        yield mock
-
-
-@pytest.fixture
-def mock_base_path() -> Generator[MagicMock, None, None]:
-    with patch("pathlib.Path") as mock:
-        mock_path = MagicMock()
-        mock_path.exists.return_value = True
-        mock_path.is_dir.return_value = True
-        mock.return_value = mock_path
-        yield mock
-
-
-@pytest.fixture
 def mock_get_available_agents() -> Generator[MagicMock, None, None]:
-    with patch("src.cli.commands.create.get_available_agents") as mock:
+    with patch("agent_starter_pack.cli.commands.create.get_available_agents") as mock:
         mock.return_value = {
             1: {
-                "name": "langgraph_base_react",
+                "name": "langgraph_base",
                 "description": "LangGraph Base React Agent",
             },
             2: {"name": "another-agent", "description": "Another Test Agent"},
@@ -164,29 +124,32 @@ def mock_get_available_agents() -> Generator[MagicMock, None, None]:
         yield mock
 
 
+@pytest.fixture
+def mock_verify_credentials_and_vertex() -> Generator[MagicMock, None, None]:
+    """Mock for fast credentials and vertex verification."""
+    with patch(
+        "agent_starter_pack.cli.commands.create.verify_credentials_and_vertex"
+    ) as mock:
+        mock.return_value = {"account": "test@example.com", "project": "test-project"}
+        yield mock
+
+
 class TestCreateCommand:
     def test_create_with_all_options(
         self,
         mock_console: MagicMock,
-        mock_verify_credentials: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
         mock_process_template: MagicMock,
         mock_get_template_path: MagicMock,
-        mock_subprocess: MagicMock,
         mock_cwd: MagicMock,
         mock_get_available_agents: MagicMock,
         mock_mkdir: MagicMock,
         mock_resolve: MagicMock,
-        mock_verify_vertex_connection: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
     ) -> None:
         """Test create command with all options provided"""
         runner = CliRunner()
-
-        # Set up expected subprocess calls
-        mock_subprocess.side_effect = [
-            MagicMock(returncode=0),  # gcp account set
-            MagicMock(returncode=0),  # gcp project set
-            MagicMock(returncode=0),  # gcp quota project set
-        ]
 
         with patch("pathlib.Path.exists", return_value=False):
             result = runner.invoke(
@@ -207,91 +170,44 @@ class TestCreateCommand:
                 catch_exceptions=False,
             )
 
-        assert result.exit_code == 0
-        expected_calls = [
-            call(
-                ["gcloud", "config", "set", "project", "test-project"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ),
-            call(
-                [
-                    "gcloud",
-                    "auth",
-                    "application-default",
-                    "set-quota-project",
-                    "test-project",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            ),
-        ]
-        mock_subprocess.assert_has_calls(expected_calls, any_order=True)
-        # Verify that process_template was called
+        assert result.exit_code == 0, result.output
+        # Auto-approve uses fast verification path
+        mock_verify_credentials_and_vertex.assert_called_once()
         mock_process_template.assert_called_once()
+        mock_load_template_config.assert_called_once()
 
     def test_create_with_auto_approve(
         self,
         mock_console: MagicMock,
-        mock_verify_credentials: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
         mock_process_template: MagicMock,
         mock_get_template_path: MagicMock,
         mock_get_available_agents: MagicMock,
         mock_prompt_deployment_target: MagicMock,
-        mock_subprocess: MagicMock,
         mock_cwd: MagicMock,
         mock_mkdir: MagicMock,
         mock_resolve: MagicMock,
-        mock_verify_vertex_connection: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
     ) -> None:
         """Test create command with auto-approve flag"""
         runner = CliRunner()
-
-        # Set up expected subprocess calls for set_gcp_project
-        mock_subprocess.side_effect = [
-            MagicMock(returncode=0),  # gcloud config set project
-            MagicMock(
-                returncode=0
-            ),  # gcloud auth application-default set-quota-project
-        ]
 
         with patch("pathlib.Path.exists", return_value=False):
             result = runner.invoke(
                 create, ["test-project", "--agent", "1", "--auto-approve"]
             )
 
-        assert result.exit_code == 0
-
-        # Verify the expected subprocess calls
-        expected_calls = [
-            call(
-                ["gcloud", "config", "set", "project", "test-project"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ),
-            call(
-                [
-                    "gcloud",
-                    "auth",
-                    "application-default",
-                    "set-quota-project",
-                    "test-project",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            ),
-        ]
-        mock_subprocess.assert_has_calls(expected_calls, any_order=True)
+        assert result.exit_code == 0, result.output
+        # Auto-approve uses fast verification path
+        mock_verify_credentials_and_vertex.assert_called_once()
         mock_process_template.assert_called_once()
+        mock_load_template_config.assert_called_once()
 
     def test_create_interactive(
         self,
         mock_console: MagicMock,
-        mock_verify_credentials: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
         mock_process_template: MagicMock,
         mock_get_template_path: MagicMock,
         mock_get_available_agents: MagicMock,
@@ -300,7 +216,8 @@ class TestCreateCommand:
         mock_cwd: MagicMock,
         mock_mkdir: MagicMock,
         mock_resolve: MagicMock,
-        mock_verify_vertex_connection: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
     ) -> None:
         """Test create command in interactive mode"""
         runner = CliRunner()
@@ -311,36 +228,36 @@ class TestCreateCommand:
             patch("rich.prompt.Prompt.ask") as mock_prompt,
         ):
             mock_int_prompt.return_value = 1  # Select first agent
-            mock_prompt.return_value = "n"  # Don't change credentials
+            # Respond with a valid choice ("Y") for credential confirmation
+            mock_prompt.return_value = "Y"
 
             result = runner.invoke(create, ["test-project"])
 
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
         mock_get_available_agents.assert_called_once()
+        mock_load_template_config.assert_called_once()
 
     def test_create_existing_project_dir(
-        self, mock_console: MagicMock, mock_cwd: MagicMock
+        self, mock_console: MagicMock, mock_cwd: MagicMock, mock_resolve: MagicMock
     ) -> None:
         """Test create command with existing project directory"""
         runner = CliRunner()
-        expected_path = Path("/mock/cwd/existing-project")
 
         with patch("pathlib.Path.exists", return_value=True):
+            # This should now exit cleanly, not raise an exception
             result = runner.invoke(create, ["existing-project"], catch_exceptions=False)
 
-        assert (
-            result.exit_code == 0
-        )  # Changed to 0 since we're handling the exit in the function
-        mock_console.print.assert_any_call(
-            f"Error: Project directory '{expected_path}' already exists",
-            style="bold red",
-        )
+        # The function should return cleanly, resulting in exit code 0.
+        assert result.exit_code == 0
+        # The error message should be in the output
+        assert "Error: Project directory" in result.output
+        assert "already exists" in result.output
 
     def test_create_gcp_credential_change(
         self,
         mock_subprocess: MagicMock,
         mock_console: MagicMock,
-        mock_verify_credentials: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
         mock_process_template: MagicMock,
         mock_get_template_path: MagicMock,
         mock_get_available_agents: MagicMock,
@@ -348,35 +265,18 @@ class TestCreateCommand:
         mock_cwd: MagicMock,
         mock_mkdir: MagicMock,
         mock_resolve: MagicMock,
-        mock_verify_vertex_connection: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
     ) -> None:
         """Test create command with GCP credential change"""
         runner = CliRunner()
 
-        # Set up the verify_credentials mock to return different values on subsequent calls
-        mock_verify_credentials.side_effect = [
-            {"account": "test@example.com", "project": "test-project"},  # First call
-            {"account": "new@example.com", "project": "new-project"},  # After login
-        ]
-
-        # Set up expected subprocess calls
-        mock_subprocess.side_effect = [
-            MagicMock(returncode=0),  # gcloud auth login
-            MagicMock(returncode=0),  # gcloud config set project
-            MagicMock(
-                returncode=0
-            ),  # gcloud auth application-default set-quota-project
-        ]
-
         with (
             patch("pathlib.Path.exists", return_value=False),
             patch("rich.prompt.Prompt.ask") as mock_prompt,
+            patch("builtins.input", return_value="1"),  # Mock CI/CD runner selection
         ):
-            # Set up credential change responses
-            mock_prompt.side_effect = [
-                "edit",  # Change credentials when prompted
-                "y",  # Continue after login
-            ]
+            mock_prompt.side_effect = ["edit", "y"]
 
             result = runner.invoke(
                 create,
@@ -391,42 +291,31 @@ class TestCreateCommand:
                 ],
                 catch_exceptions=False,
             )
-        assert result.exit_code == 0
-
-        # Verify subprocess was called with the right arguments for login
+        assert result.exit_code == 0, result.output
         mock_subprocess.assert_any_call(
             ["gcloud", "auth", "login", "--update-adc"], check=True
         )
+        mock_load_template_config.assert_called_once()
 
     def test_create_with_invalid_agent_name(
         self,
-        mock_console: MagicMock,
-        mock_verify_credentials: MagicMock,
         mock_get_available_agents: MagicMock,
-        mock_verify_vertex_connection: MagicMock,
-        mock_subprocess: MagicMock,
-        mock_cwd: MagicMock,
-        mock_mkdir: MagicMock,
-        mock_resolve: MagicMock,
     ) -> None:
         """Test create command fails with invalid agent name"""
         runner = CliRunner()
 
         with patch("pathlib.Path.exists", return_value=False):
+            # FIX: Add --auto-approve to prevent calling an unmocked interactive prompt.
             result = runner.invoke(
-                create, ["test-project", "--agent", "non_existent_agent"]
+                create,
+                ["test-project", "--agent", "non_existent_agent", "--auto-approve"],
+                catch_exceptions=False,
             )
 
-        assert result.exit_code != 0  # Just verify it failed
-        # Check the error message in the log output
+        assert result.exit_code == 1
         assert "Invalid agent name or number: non_existent_agent" in result.output
 
-    def test_create_with_invalid_deployment_target(
-        self,
-        mock_console: MagicMock,
-        mock_verify_credentials: MagicMock,
-        mock_get_available_agents: MagicMock,
-    ) -> None:
+    def test_create_with_invalid_deployment_target(self) -> None:
         """Test create command fails with invalid deployment target"""
         runner = CliRunner()
 
@@ -435,7 +324,7 @@ class TestCreateCommand:
             ["test-project", "--agent", "1", "--deployment-target", "invalid_target"],
         )
 
-        assert result.exit_code == 2  # Click returns 2 for invalid choice errors
+        assert result.exit_code == 2
         assert "Invalid value for '--deployment-target'" in result.output
         assert (
             "'invalid_target' is not one of 'agent_engine', 'cloud_run'"
@@ -450,13 +339,11 @@ class TestCreateCommand:
             mock_prompt.return_value = 1
             result = display_agent_selection()
 
-        assert result == "langgraph_base_react"
+        assert result == "langgraph_base"
         mock_get_available_agents.assert_called_once()
 
     def test_normalize_project_name(self, mock_console: MagicMock) -> None:
         """Test the normalize_project_name function directly"""
-        from src.cli.commands.create import normalize_project_name
-
         # Test with uppercase characters
         result = normalize_project_name("TestProject")
         assert result == "testproject"
@@ -504,3 +391,119 @@ class TestCreateCommand:
         result = normalize_project_name("test-project")
         assert result == "test-project"
         mock_console.print.assert_not_called()
+
+    def test_create_auto_approve_defaults_project_name(
+        self,
+        mock_console: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
+        mock_process_template: MagicMock,
+        mock_get_template_path: MagicMock,
+        mock_get_available_agents: MagicMock,
+        mock_cwd: MagicMock,
+        mock_mkdir: MagicMock,
+        mock_resolve: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
+    ) -> None:
+        """Test create command defaults project name to 'my-agent' in auto-approve mode"""
+        runner = CliRunner()
+
+        with patch("pathlib.Path.exists", return_value=False):
+            result = runner.invoke(create, ["--agent", "1", "-y"])
+
+        assert result.exit_code == 0, result.output
+        assert "Defaulting to 'my-agent'" in result.output
+        mock_process_template.assert_called_once()
+
+    def test_create_auto_approve_defaults_agent(
+        self,
+        mock_console: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
+        mock_process_template: MagicMock,
+        mock_get_template_path: MagicMock,
+        mock_get_available_agents: MagicMock,
+        mock_cwd: MagicMock,
+        mock_mkdir: MagicMock,
+        mock_resolve: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
+    ) -> None:
+        """Test create command defaults agent to first available in auto-approve mode"""
+        runner = CliRunner()
+
+        with patch("pathlib.Path.exists", return_value=False):
+            result = runner.invoke(create, ["test-project", "-y"])
+
+        assert result.exit_code == 0, result.output
+        assert "--agent not specified. Defaulting to 'langgraph_base'" in result.output
+        mock_process_template.assert_called_once()
+
+    def test_create_interactive_prompts_for_project_name(
+        self,
+        mock_console: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
+        mock_process_template: MagicMock,
+        mock_get_template_path: MagicMock,
+        mock_get_available_agents: MagicMock,
+        mock_prompt_deployment_target: MagicMock,
+        mock_subprocess: MagicMock,
+        mock_cwd: MagicMock,
+        mock_mkdir: MagicMock,
+        mock_resolve: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
+    ) -> None:
+        """Test create command prompts for project name when not provided"""
+        runner = CliRunner()
+
+        with (
+            patch("pathlib.Path.exists", return_value=False),
+            patch("rich.prompt.IntPrompt.ask") as mock_int_prompt,
+            patch("rich.prompt.Prompt.ask") as mock_prompt,
+        ):
+            mock_int_prompt.return_value = 1  # Select first agent
+            # First call for project name, second for credential confirmation
+            mock_prompt.side_effect = ["my-custom-project", "Y"]
+
+            result = runner.invoke(create, [])
+
+        assert result.exit_code == 0, result.output
+        mock_process_template.assert_called_once()
+
+    def test_create_with_adk_flag(
+        self,
+        mock_console: MagicMock,
+        mock_verify_credentials_and_vertex: MagicMock,
+        mock_process_template: MagicMock,
+        mock_get_template_path: MagicMock,
+        mock_cwd: MagicMock,
+        mock_mkdir: MagicMock,
+        mock_resolve: MagicMock,
+        mock_load_template_config: MagicMock,
+        mock_get_deployment_targets: MagicMock,
+    ) -> None:
+        """Test --adk flag sets adk_base, agent_engine, prototype mode, and skips prompts"""
+        runner = CliRunner()
+
+        with (
+            patch("pathlib.Path.exists", return_value=False),
+            patch(
+                "agent_starter_pack.cli.commands.create.get_available_agents"
+            ) as mock_agents,
+        ):
+            # Include adk_base in available agents
+            mock_agents.return_value = {
+                1: {"name": "adk_base", "description": "ADK Base Agent"},
+                2: {"name": "langgraph_base", "description": "LangGraph Agent"},
+            }
+            # Only --adk flag needed - no -s or -y required
+            result = runner.invoke(create, ["test-project", "--adk"])
+
+        assert result.exit_code == 0, result.output
+        mock_process_template.assert_called_once()
+
+        # Verify process_template was called with correct arguments
+        call_kwargs = mock_process_template.call_args[1]
+        assert call_kwargs["agent_name"] == "adk_base"
+        assert call_kwargs["deployment_target"] == "agent_engine"
+        assert call_kwargs["cicd_runner"] == "skip"  # prototype mode

@@ -14,69 +14,16 @@
 
 import os
 import pathlib
-import subprocess
 from datetime import datetime
 
 import pytest
 from rich.console import Console
 
+from tests.integration.utils import run_command
 from tests.utils.get_agents import get_test_combinations_to_run
 
 console = Console()
 TARGET_DIR = "target"
-
-
-def run_command(
-    cmd: list[str],
-    cwd: pathlib.Path | None,
-    message: str,
-    stream_output: bool = True,
-    env: dict | None = None,
-) -> subprocess.CompletedProcess:
-    """Helper function to run commands and stream output"""
-    console.print(f"\n[bold blue]{message}...[/]")
-    try:
-        # Using Popen to stream output
-        with subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=cwd,
-            bufsize=1,  # Line-buffered
-            env=env,
-        ) as process:
-            if stream_output:
-                # Stream stdout
-                if process.stdout:
-                    for line in process.stdout:
-                        console.print(line.strip())
-
-                # Stream stderr
-                if process.stderr:
-                    for line in process.stderr:
-                        console.print("[bold red]" + line.strip())
-            else:
-                # Consume the output but don't print it
-                if process.stdout:
-                    for _ in process.stdout:
-                        pass
-                if process.stderr:
-                    for _ in process.stderr:
-                        pass
-
-            # Wait for the process to complete and get the return code
-            returncode = process.wait()
-
-        if returncode != 0:
-            raise subprocess.CalledProcessError(returncode, cmd)
-
-        console.print(f"[green]✓[/] {message} completed successfully")
-        return subprocess.CompletedProcess(cmd, returncode, "", "")
-
-    except subprocess.CalledProcessError:
-        console.print(f"[bold red]Error: {message}[/]")
-        raise
 
 
 def _run_agent_test(
@@ -87,7 +34,7 @@ def _run_agent_test(
     timestamp = datetime.now().strftime("%m%d%H%M%S")
     project_name = f"{agent[:8]}-{deployment_target[:5]}-{timestamp}".replace("_", "-")
     project_path = pathlib.Path(TARGET_DIR) / project_name
-    region = "us-central1" if agent == "live_api" else "europe-west4"
+    region = "us-central1" if agent == "adk_live" else "europe-west4"
     try:
         # Create target directory if it doesn't exist
         os.makedirs(TARGET_DIR, exist_ok=True)
@@ -96,7 +43,7 @@ def _run_agent_test(
         cmd = [
             "python",
             "-m",
-            "src.cli.main",
+            "agent_starter_pack.cli.main",
             "create",
             project_name,
             "--agent",
@@ -119,13 +66,33 @@ def _run_agent_test(
             "Templating project",
         )
 
+        # Determine agent directory from extra_params
+        agent_directory = "app"  # default
+        if extra_params:
+            # Check for -dir or --agent-directory parameter
+            for i, param in enumerate(extra_params):
+                if param in ["-dir", "--agent-directory"] and i + 1 < len(extra_params):
+                    agent_directory = extra_params[i + 1]
+                    break
+
         # Verify essential files
         essential_files = [
             "pyproject.toml",
-            "app/agent.py",
+            f"{agent_directory}/agent.py",
         ]
         for file in essential_files:
             assert (project_path / file).exists(), f"Missing file: {file}"
+
+        # Verify A2A inspector setup for A2A agents
+        if agent == "langgraph_base":
+            # A2A agents use inspector which is installed at runtime via make inspector
+            # Just verify the Makefile has the inspector target
+            makefile_path = project_path / "Makefile"
+            assert makefile_path.exists(), "Makefile missing"
+            makefile_content = makefile_path.read_text()
+            assert "inspector:" in makefile_content, (
+                "inspector target missing in Makefile"
+            )
 
         # Install dependencies
         run_command(
@@ -164,7 +131,7 @@ def _run_agent_test(
 @pytest.mark.parametrize(
     "agent,deployment_target,extra_params",
     get_test_combinations_to_run(),
-    # Edit here to manually force a specific combination e.g [("langgraph_base_react", "agent_engine", None)]
+    # Edit here to manually force a specific combination e.g [("langgraph_base", "agent_engine", None)]
 )
 def test_agent_deployment(
     agent: str, deployment_target: str, extra_params: list[str] | None

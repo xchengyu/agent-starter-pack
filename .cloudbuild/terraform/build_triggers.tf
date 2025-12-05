@@ -22,25 +22,41 @@ locals {
     "**/Makefile",
   ]
 
+  # Gemini Enterprise related files - these have their own dedicated trigger
+  gemini_enterprise_files = [
+    "agent_starter_pack/cli/commands/register_gemini_enterprise.py",
+    "tests/cicd/test_gemini_enterprise_registration.py",
+    ".cloudbuild/cd/test_gemini_enterprise.yaml",
+  ]
+
   common_included_files = [
-    "agents/**",
-    "src/cli/**",
+    "agent_starter_pack/agents/**",
+    "agent_starter_pack/cli/**",
     "tests/**",
-    "src/data_ingestion/**",
-    "src/frontends/streamlit/**",
+    "agent_starter_pack/data_ingestion/**",
     "pyproject.toml",
     "uv.lock",
     ".cloudbuild/**",
   ]
 
   lint_templated_agents_included_files = [
-    "src/cli/**",
-    "src/base_template/**",
-    "src/data_ingestion/**",
-    "src/deployment_targets/**",
+    "agent_starter_pack/cli/**",
+    "agent_starter_pack/base_template/**",
+    "agent_starter_pack/data_ingestion/**",
+    "agent_starter_pack/deployment_targets/**",
     "tests/integration/test_template_linting.py",
     "tests/integration/test_templated_patterns.py",
-    "src/resources/locks/**",
+    "agent_starter_pack/resources/locks/**",
+    "pyproject.toml",
+    "uv.lock",
+    ".cloudbuild/**",
+  ]
+
+  makefile_usability_included_files = [
+    "agent_starter_pack/cli/**",
+    "agent_starter_pack/base_template/**",
+    "agent_starter_pack/deployment_targets/**",
+    "tests/integration/test_makefile_usability.py",
     "pyproject.toml",
     "uv.lock",
     ".cloudbuild/**",
@@ -57,20 +73,12 @@ locals {
       value = "adk_base,cloud_run"
     },
     {
-      name  = "langgraph_base_react-agent_engine"
-      value = "langgraph_base_react,agent_engine"
+      name  = "langgraph_base-agent_engine"
+      value = "langgraph_base,agent_engine"
     },
     {
-      name  = "langgraph_base_react-cloud_run"
-      value = "langgraph_base_react,cloud_run"
-    },
-    {
-      name  = "crewai_coding_crew-agent_engine"
-      value = "crewai_coding_crew,agent_engine"
-    },
-    {
-      name  = "crewai_coding_crew-cloud_run"
-      value = "crewai_coding_crew,cloud_run"
+      name  = "langgraph_base-cloud_run"
+      value = "langgraph_base,cloud_run,-dir,tag"
     },
     {
       name = "agentic_rag-agent_engine-vertex_ai_search"
@@ -81,38 +89,74 @@ locals {
       value = "agentic_rag,cloud_run,--include-data-ingestion,--datastore,vertex_ai_vector_search"
     },
     {
-      name  = "live_api-cloud_run"
-      value = "live_api,cloud_run"
+      name  = "adk_live-agent_engine"
+      value = "adk_live,agent_engine"
+    },
+    {
+      name  = "adk_live-cloud_run"
+      value = "adk_live,cloud_run"
+    },
+    {
+      name  = "adk_base-cloud_run-cloud_sql"
+      value = "adk_base,cloud_run,--session-type,cloud_sql"
+    },
+    {
+      name  = "adk_b-cr-agent_engine"
+      value = "adk_base,cloud_run,--session-type,agent_engine"
+    },
+    {
+      name  = "adk_a2a_base-agent_engine"
+      value = "adk_a2a_base,agent_engine"
+    },
+    {
+      name  = "adk_a2a_base-cloud_run"
+      value = "adk_a2a_base,cloud_run"
     },
   ]
 
-  agent_testing_included_files = { for combo in local.agent_testing_combinations :
+agent_testing_included_files = { for combo in local.agent_testing_combinations :
     combo.name => [
       # Only include files for the specific agent being tested
-      "agents/${split(",", combo.value)[0]}/**",
+      "agent_starter_pack/agents/${split(",", combo.value)[0]}/**",
       # Common files that affect all agents
-      "src/cli/**",
-      "src/base_template/**",
-      "src/deployment_targets/**",
+      "agent_starter_pack/cli/**",
+      "agent_starter_pack/base_template/**",
+      "agent_starter_pack/deployment_targets/**",
       "tests/integration/test_template_linting.py",
       "tests/integration/test_templated_patterns.py",
-      "src/resources/locks/**",
+      "agent_starter_pack/resources/locks/**",
       "pyproject.toml",
       "uv.lock",
     ]
   }
   e2e_agent_deployment_combinations = [
     {
+      name  = "adk_base-agent_engine-github"
+      value = "adk_base,agent_engine,--cicd-runner,github_actions"
+    },
+    {
+      name  = "adk_base-cloud_run-github"
+      value = "adk_base,cloud_run,--cicd-runner,github_actions"
+    },
+    {
+      name = "agentic_rag-agent_engine-vertex_ai_search-github"
+      value = "agentic_rag,agent_engine,--include-data-ingestion,--datastore,vertex_ai_search,--cicd-runner,github_actions"
+    },
+    {
+      name  = "adk_live-agent_engine-github"
+      value = "adk_live,agent_engine,--cicd-runner,github_actions"
+    },
+    {
       name  = "adk_base-agent_engine"
-      value = "adk_base,agent_engine"
+      value = "adk_base,agent_engine,-dir,tag"
     },
     {
       name  = "adk_base-cloud_run"
-      value = "adk_base,cloud_run"
+      value = "adk_base,cloud_run,-dir,tag"
     },
     {
-      name = "langgraph_base_react-agent_engine"
-      value = "langgraph_base_react,agent_engine"
+      name = "langgraph_base-agent_engine"
+      value = "langgraph_base,agent_engine"
     },
     {
       name = "agentic_rag-agent_engine-vertex_ai_search"
@@ -123,28 +167,58 @@ locals {
       value = "agentic_rag,cloud_run,--include-data-ingestion,--datastore,vertex_ai_vector_search"
     },
     {
-      name  = "live_api-cloud_run"
-      value = "live_api,cloud_run"
+      name  = "adk_live-agent_engine"
+      value = "adk_live,agent_engine"
+    },
+    {
+      name  = "adk_live-cloud_run"
+      value = "adk_live,cloud_run"
+    },
+    {
+      name  = "adk_base-cloud_run-cloud_sql"
+      value = "adk_base,cloud_run,--session-type,cloud_sql"
+    },
+    {
+      name  = "adk_a2a_base-agent_engine"
+      value = "adk_a2a_base,agent_engine"
+    },
+    {
+      name  = "adk_a2a_base-cloud_run"
+      value = "adk_a2a_base,cloud_run"
     },
   ]
-  
   # Create a safe trigger name by replacing underscores with hyphens and dots with hyphens
   # This ensures we have valid trigger names that don't exceed character limits
   trigger_name_safe = { for combo in local.agent_testing_combinations :
       combo.name => replace(replace(combo.name, "_", "-"), ".", "-")
     }
 
-  e2e_agent_deployment_included_files = { for combo in local.agent_testing_combinations :
-    combo.name => [
+  # Create safe trigger names for e2e deployment combinations
+  e2e_trigger_name_safe = { for combo in local.e2e_agent_deployment_combinations :
+      combo.name => replace(replace(combo.name, "_", "-"), ".", "-")
+    }
+
+  e2e_agent_deployment_included_files = { for combo in local.e2e_agent_deployment_combinations :
+    combo.name => combo.name == "adk_base-cloud_run-cloud_sql" ? [
+      "agent_starter_pack/deployment_targets/cloud_run/**",
+      "pyproject.toml",
+    ] : substr(combo.name, 0, 11) == "agentic_rag" ? [
+      "agent_starter_pack/agents/agentic_rag/**",
+      "agent_starter_pack/data_ingestion/**",
+      "pyproject.toml",
+    ] : substr(combo.name, 0, 8) == "adk_live" ? [
+      "agent_starter_pack/agents/adk_live/**",
+      "pyproject.toml",
+    ] : [
       # Only include files for the specific agent being tested
-      "agents/${split(",", combo.value)[0]}/**",
+      "agent_starter_pack/agents/${split(",", combo.value)[0]}/**",
       # Common files that affect all agents
-      "src/cli/**",
-      "src/base_template/**",
-      "src/data_ingestion/**",
-      "src/deployment_targets/**",
+      "agent_starter_pack/cli/**",
+      "agent_starter_pack/base_template/**",
+      "agent_starter_pack/data_ingestion/**",
+      "agent_starter_pack/deployment_targets/**",
       "tests/cicd/test_e2e_deployment.py",
-      "src/resources/locks/**",
+      "agent_starter_pack/resources/locks/**",
       "pyproject.toml",
       "uv.lock",
       ".cloudbuild"
@@ -277,7 +351,7 @@ resource "google_cloudbuild_trigger" "pr_templated_agents_test" {
 resource "google_cloudbuild_trigger" "main_e2e_deployment_test" {
   for_each = { for combo in local.e2e_agent_deployment_combinations : combo.name => combo }
 
-  name            = "e2e-deploy-${local.trigger_name_safe[each.key]}"
+  name            = "e2e-deploy-${local.e2e_trigger_name_safe[each.key]}"
   project         = var.cicd_runner_project_id
   location        = var.region
   description     = "Trigger for E2E deployment tests on main branch: ${each.value.name}"
@@ -292,13 +366,145 @@ resource "google_cloudbuild_trigger" "main_e2e_deployment_test" {
 
   filename       = ".cloudbuild/cd/test_e2e.yaml"
   included_files = local.e2e_agent_deployment_included_files[each.key]
-  ignored_files  = local.common_ignored_files
+  ignored_files  = concat(local.common_ignored_files, local.gemini_enterprise_files)
   include_build_logs = "INCLUDE_BUILD_LOGS_UNSPECIFIED"
 
   substitutions = {
     _TEST_AGENT_COMBINATION = each.value.value
-    _E2E_DEV_PROJECT     = var.e2e_test_project_mapping.dev
-    _E2E_STAGING_PROJECT = var.e2e_test_project_mapping.staging
-    _E2E_PROD_PROJECT    = var.e2e_test_project_mapping.prod
+    _E2E_DEV_PROJECT        = var.e2e_test_project_mapping.dev
+    _E2E_STAGING_PROJECT    = var.e2e_test_project_mapping.staging
+    _E2E_PROD_PROJECT       = var.e2e_test_project_mapping.prod
+    _SECRETS_PROJECT_ID     = "asp-e2e-vars"
+  }
+}
+
+# f. Create Remote Template Test trigger for PR requests
+resource "google_cloudbuild_trigger" "pr_test_remote_template" {
+  name            = "pr-test-remote-template"
+  project         = var.cicd_runner_project_id
+  location        = var.region
+  description     = "Trigger for PR checks on remote templating"
+  service_account = resource.google_service_account.cicd_runner_sa.id
+
+  repository_event_config {
+    repository = local.repository_path
+    pull_request {
+      branch          = "main"
+      comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
+    }
+  }
+
+  filename           = ".cloudbuild/ci/test_remote_template.yaml"
+  included_files     = local.common_included_files
+  ignored_files      = local.common_ignored_files
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
+}
+
+# g. Create Makefile usability Test trigger for PR requests
+resource "google_cloudbuild_trigger" "pr_test_makefile" {
+  name            = "pr-test-makefile"
+  project         = var.cicd_runner_project_id
+  location        = var.region
+  description     = "Trigger for PR checks on Makefile usability"
+  service_account = resource.google_service_account.cicd_runner_sa.id
+
+  repository_event_config {
+    repository = local.repository_path
+    pull_request {
+      branch          = "main"
+      comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
+    }
+  }
+
+  filename           = ".cloudbuild/ci/test_makefile.yaml"
+  included_files     = local.makefile_usability_included_files
+  ignored_files      = ["**/*.md"]  # Don't ignore Makefiles for this trigger
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
+}
+
+# h. Create Pipeline Parity Test trigger for PR requests
+resource "google_cloudbuild_trigger" "pr_test_pipeline_parity" {
+  name            = "pr-test-pipeline-parity"
+  project         = var.cicd_runner_project_id
+  location        = var.region
+  description     = "Trigger for PR checks on pipeline parity between GitHub Actions and Cloud Build"
+  service_account = resource.google_service_account.cicd_runner_sa.id
+
+  repository_event_config {
+    repository = local.repository_path
+    pull_request {
+      branch          = "main"
+      comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
+    }
+  }
+
+  filename       = ".cloudbuild/ci/test_pipeline_parity.yaml"
+  included_files = [
+    "tests/integration/test_pipeline_parity.py",
+    "agent_starter_pack/cli/**",
+    ".cloudbuild/**",
+    "agent_starter_pack/base_template/**/.github/**",
+    "agent_starter_pack/base_template/**/.cloudbuild/**",
+    "pyproject.toml",
+    "uv.lock",
+  ]
+  ignored_files      = local.common_ignored_files
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
+}
+
+# i. Create Agent Directory Functionality Test trigger for PR requests
+resource "google_cloudbuild_trigger" "pr_test_agent_directory" {
+  name            = "pr-test-agent-directory"
+  project         = var.cicd_runner_project_id
+  location        = var.region
+  description     = "Trigger for PR checks on agent directory functionality (YAML agents, custom directories)"
+  service_account = resource.google_service_account.cicd_runner_sa.id
+
+  repository_event_config {
+    repository = local.repository_path
+    pull_request {
+      branch          = "main"
+      comment_control = "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"
+    }
+  }
+
+  filename       = ".cloudbuild/ci/test_agent_directory.yaml"
+  included_files = [
+    "pyproject.toml",
+    "uv.lock",
+    "tests/integration/test_agent_directory_functionality.py",
+    ".cloudbuild/ci/test_agent_directory.yaml",
+  ]
+  ignored_files      = local.common_ignored_files
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
+}
+
+# j. Create E2E Gemini Enterprise Registration Test trigger for main branch commits (runs on merge to main)
+resource "google_cloudbuild_trigger" "main_e2e_gemini_enterprise_test" {
+  name            = "e2e-gemini-enterprise-registration"
+  project         = var.cicd_runner_project_id
+  location        = var.region
+  description     = "E2E test for Gemini Enterprise registration on main branch (runs when PR merges to main)"
+  service_account = resource.google_service_account.cicd_runner_sa.id
+
+  repository_event_config {
+    repository = local.repository_path
+    push {
+      branch = "main"
+    }
+  }
+
+  filename       = ".cloudbuild/cd/test_gemini_enterprise.yaml"
+  included_files = [
+    "pyproject.toml",  # Triggers on releases
+    "agent_starter_pack/cli/commands/register_gemini_enterprise.py",  # Registration code changes
+    "tests/cicd/test_gemini_enterprise_registration.py",  # Test changes
+    ".cloudbuild/cd/test_gemini_enterprise.yaml",  # Pipeline changes
+  ]
+  ignored_files      = local.common_ignored_files
+  include_build_logs = "INCLUDE_BUILD_LOGS_UNSPECIFIED"
+
+  substitutions = {
+    _E2E_DEV_PROJECT = var.e2e_test_project_mapping.dev
   }
 }
